@@ -115,7 +115,7 @@ def train(rnn_model, hprev1, hprev2, hprev3, input_line_tensor, target_line_tens
 	nn.utils.clip_grad_value_(rnn_model.parameters(), 0.5)
 	optimizer.step()
 
-	return hidden1.data, hidden2.data, hidden3.data, total_loss.item() / input_line_tensor.size(0)
+	return hidden1.data, hidden2.data, hidden3.data, total_loss.item() / input_line_tensor.size(1)
 
 
 def sample(rnn_model, h1, h2, h3, letter_index, sample_length, decoder_vocab):
@@ -163,7 +163,7 @@ else:
 if not os.path.exists('samples'): os.mkdir('samples')
 
 while True:
-	if p+seq_length+1 >= len(data) or n == 0:
+	if (p+seq_length*batch_size+1 >= len(data)) or (n == 0):
 		hidden_values1 = [rnn.initHidden() for _ in range(batch_size)]
 		hidden_values2 = [rnn.initHidden() for _ in range(batch_size)]
 		hidden_values3 = [rnn.initHidden() for _ in range(batch_size)]
@@ -198,7 +198,7 @@ while True:
 					 hidden_values1[-1].reshape((1,-1)), 
 					 hidden_values2[-1].reshape((1,-1)), 
 					 hidden_values3[-1].reshape((1,-1)), 
-					 letter_index=list(char_to_index[data[p]]), 
+					 letter_index=[char_to_index[data[p]]],
 					 sample_length=200,
 					 decoder_vocab=index_to_char)
 		print ('----\n %s \n----' % (txt, ))
