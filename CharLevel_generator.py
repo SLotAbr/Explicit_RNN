@@ -11,11 +11,11 @@ print ('data has %d characters, %d unique.' % (data_size, vocab_size))
 char_to_index = { ch:i for i,ch in enumerate(chars) }
 index_to_char = { i:ch for i,ch in enumerate(chars) }
 
-BATCH_SIZE = 100
+BATCH_SIZE = 5
 HIDDEN_SIZE = 128 # size of hidden layer of neurons
 LAYER_NUMBER = 3
 optimizer_lr = 1.0e-3
-seq_length = 25 # number of steps to unroll the RNN for
+SEQ_LENGTH = 25 # number of steps to unroll the RNN for
 
 
 # If we have a GPU available, we'll set our device to GPU
@@ -122,7 +122,7 @@ def train(rnn_model, hprev, input_line_tensor, target_line_tensor):
 		total_loss += loss
 
 	total_loss.backward()
-	nn.utils.clip_grad_value_(rnn_model.parameters(), 0.5)
+	nn.utils.clip_grad_value_(rnn_model.parameters(), 5)
 	optimizer.step()
 
 	return [h.data for h in hidden], total_loss.item() / input_line_tensor.size(1)
@@ -154,22 +154,22 @@ def sample(rnn_model, hidden, letter_index, sample_length, decoder_vocab):
 
 # Load checkpoint
 if os.path.exists('setting/parameters.pt'):
-	checkpoint = torch.load('setting/parameters.pt')
-	rnn.load_state_dict(checkpoint['model_state_dict'])
-	optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-	char_to_index, index_to_char = checkpoint['vocabulary']
-	n, p, smooth_loss = checkpoint['support']
-	hidden_values = checkpoint['hidden_values']
+	with torch.load('setting/parameters.pt') as checkpoint:
+		rnn.load_state_dict(checkpoint['model_state_dict'])
+		optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+		char_to_index, index_to_char = checkpoint['vocabulary']
+		n, p, smooth_loss = checkpoint['support']
+		hidden_values = checkpoint['hidden_values']
 
 	rnn.train()
 else:
 	if not os.path.exists('setting'): os.mkdir('setting')
 	n, p = 0, 0
-	smooth_loss = -log(1.0/vocab_size)*seq_length # loss at iteration 0
+	smooth_loss = -log(1.0/vocab_size)*SEQ_LENGTH # loss at iteration 0
 if not os.path.exists('samples'): os.mkdir('samples')
 
 while True:
-	if (p+seq_length*BATCH_SIZE+1 >= len(data)) or (n == 0):
+	if (p+SEQ_LENGTH*BATCH_SIZE+1 >= len(data)) or (n == 0):
 		hidden_values = rnn.init_hidden(is_batch=True)
 		hidden_values = list(map(lambda h: h.to(device), hidden_values))
 		p = 0
@@ -177,12 +177,12 @@ while True:
 	inputs, targets = list(), list()
 	for _ in range(BATCH_SIZE):
 		inputs.append( inputTensor(
-						[char_to_index[ch] for ch in data[p:p+seq_length]])
+						[char_to_index[ch] for ch in data[p:p+SEQ_LENGTH]])
 		)
 		targets.append( torch.LongTensor(
-						[char_to_index[ch] for ch in data[p+1:p+seq_length+1]]).reshape((1,-1))
+						[char_to_index[ch] for ch in data[p+1:p+SEQ_LENGTH+1]]).reshape((1,-1))
 		)
-		p+=seq_length
+		p+=SEQ_LENGTH*BATCH_SIZE
 	inputs = torch.cat(inputs).to(device)
 	targets = torch.cat(targets).to(device)
 
