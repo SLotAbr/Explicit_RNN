@@ -35,53 +35,33 @@ class RNN(nn.Module):
 		super(RNN, self).__init__()
 		self.BATCH_SIZE = BATCH_SIZE
 		self.HIDDEN_SIZE = HIDDEN_SIZE
-		self.LAYER_NUMBER = LAYER_NUMBER
+		self.RNN_layer, self.LAYER_NUMBER = [], LAYER_NUMBER
 
-		self.i2h1 = nn.Linear(input_size + HIDDEN_SIZE, HIDDEN_SIZE)
-		self.norm1 = nn.LayerNorm(normalized_shape=HIDDEN_SIZE)
-		self.act1 = nn.Tanh() if act=='tanh' else nn.ReLU()
-		self.drop1 = nn.Dropout(dropout_value)
-
-		self.h12h2 = nn.Linear(HIDDEN_SIZE + HIDDEN_SIZE, HIDDEN_SIZE)
-		self.norm2 = nn.LayerNorm(normalized_shape=HIDDEN_SIZE)
-		self.act2 = nn.Tanh() if act=='tanh' else nn.ReLU()
-		self.drop2 = nn.Dropout(dropout_value)
-
-		self.h22h3 = nn.Linear(HIDDEN_SIZE + HIDDEN_SIZE, HIDDEN_SIZE)
-		self.norm3 = nn.LayerNorm(normalized_shape=HIDDEN_SIZE)
-		self.act3 = nn.Tanh() if act=='tanh' else nn.ReLU()
-		self.drop3 = nn.Dropout(dropout_value)
+		for l in range(LAYER_NUMBER):
+			self.RNN_layer.append(
+				nn.Sequential(
+					nn.Linear(2*HIDDEN_SIZE if l!=0 else input_size + HIDDEN_SIZE
+							, HIDDEN_SIZE),
+					nn.LayerNorm(normalized_shape=HIDDEN_SIZE),
+					nn.Tanh() if act=='tanh' else nn.ReLU(),
+					nn.Dropout(dropout_value)
+				)
+			)
 
 		self.h2o = nn.Linear(HIDDEN_SIZE, output_size)
 		
-	def forward(self, input, hidden):
-		hidden1 = hidden[0]
-		hidden2 = hidden[1]
-		hidden3 = hidden[2]
-		input_combined = torch.cat((input, hidden1), 1)
+	def forward(self, input_, hidden):
+		assert len(hidden)==self.LAYER_NUMBER,\
+			f"Need {self.LAYER_NUMBER} hidden items for model's forward, {len(hidden)} was found"
+		
+		for l in range(self.LAYER_NUMBER):
+			hidden[l] = self.RNN_layer[l]( 
+				torch.cat((hidden[l], input_ if l==0 else hidden[l-1]), 1)
+			)
 
-		hidden1 = self.i2h1(input_combined)
-		hidden1 = self.norm1(hidden1)
-		hidden1 = self.act1(hidden1)
-		hidden1 = self.drop1(hidden1)
+		output = self.h2o(hidden[-1])
 
-		hidden1_combined = torch.cat((hidden2, hidden1), 1)
-
-		hidden2 = self.h12h2(hidden1_combined)
-		hidden2 = self.norm2(hidden2)
-		hidden2 = self.act2(hidden2)
-		hidden2 = self.drop2(hidden2)
-
-		hidden2_combined = torch.cat((hidden3, hidden2), 1)
-
-		hidden3 = self.h22h3(hidden2_combined)
-		hidden3 = self.norm3(hidden2)
-		hidden3 = self.act3(hidden3)
-		hidden3 = self.drop3(hidden3)
-
-		output = self.h2o(hidden3)
-
-		return output, [hidden1, hidden2, hidden3]
+		return output, hidden
 
 	def init_hidden(self, is_batch=True):
 		return [torch.zeros(self.BATCH_SIZE if is_batch else 1,
