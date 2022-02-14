@@ -53,7 +53,7 @@ class RNN(nn.Module):
 	def forward(self, input_, hidden):
 		assert len(hidden)==self.LAYER_NUMBER,\
 			f"Need {self.LAYER_NUMBER} hidden items for model's forward, {len(hidden)} was found"
-		
+
 		for l in range(self.LAYER_NUMBER):
 			hidden[l] = self.RNN_layer[l]( 
 				torch.cat((hidden[l], input_ if l==0 else hidden[l-1]), 1)
@@ -162,7 +162,7 @@ while True:
 		targets.append( torch.LongTensor(
 						[char_to_index[ch] for ch in data[p+1:p+SEQ_LENGTH+1]]).reshape((1,-1))
 		)
-		p+=SEQ_LENGTH*BATCH_SIZE
+		p+=SEQ_LENGTH
 	inputs = torch.cat(inputs).to(device)
 	targets = torch.cat(targets).to(device)
 
